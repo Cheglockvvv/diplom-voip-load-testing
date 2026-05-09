@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -50,6 +51,9 @@ func LoadScenario(path string) (Scenario, error) {
 }
 
 func (s *Scenario) fillDefaults() {
+	if s.Mode == "" {
+		s.Mode = "registration_storm"
+	}
 	if s.Users <= 0 {
 		s.Users = 100
 	}
@@ -71,4 +75,34 @@ func (s *Scenario) fillDefaults() {
 	if s.RTP.PayloadSize == 0 {
 		s.RTP.PayloadSize = 160
 	}
+}
+
+func (s Scenario) Validate() error {
+	if strings.TrimSpace(s.Name) == "" {
+		return fmt.Errorf("scenario name is required")
+	}
+	switch s.Mode {
+	case "registration_storm", "call_setup_rate", "media_stress":
+	default:
+		return fmt.Errorf("unsupported mode %q", s.Mode)
+	}
+	if s.DurationSeconds <= 0 {
+		return fmt.Errorf("duration_seconds must be > 0")
+	}
+	if s.CPS <= 0 {
+		return fmt.Errorf("cps must be > 0")
+	}
+	if s.Users <= 0 {
+		return fmt.Errorf("users must be > 0")
+	}
+	if strings.TrimSpace(s.Target.Host) == "" {
+		return fmt.Errorf("target.host is required")
+	}
+	if s.Target.SIPPort <= 0 {
+		return fmt.Errorf("target.sip_port must be > 0")
+	}
+	if s.RTP.Enabled && s.Target.RTPPort <= 0 {
+		return fmt.Errorf("target.rtp_port must be > 0 when rtp.enabled=true")
+	}
+	return nil
 }

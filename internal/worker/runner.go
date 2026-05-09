@@ -2,9 +2,11 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,17 +27,29 @@ func NewRunner(m *metrics.Registry) *Runner {
 }
 
 func (r *Runner) Run(ctx context.Context, sc config.Scenario) error {
+	if err := sc.Validate(); err != nil {
+		return err
+	}
 	r.metrics.ScenarioRunning.Set(1)
 	defer r.metrics.ScenarioRunning.Set(0)
 
-	duration := time.Duration(sc.DurationSeconds) * time.Second
-	endAt := time.Now().Add(duration)
-	if sc.CPS <= 0 {
-		sc.CPS = 1
+	startAt := time.Now()
+	endAt := startAt.Add(time.Duration(sc.DurationSeconds) * time.Second)
+	maxConcurrent := sc.Users
+	if maxConcurrent < 1 {
+		maxConcurrent = 1
 	}
 
 	var wg sync.WaitGroup
+	sem := make(chan struct{}, maxConcurrent)
 	for time.Now().Before(endAt) {
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return nil
+		default:
+		}
+
 		currentCPS := rampedCPS(sc, time.Now(), endAt)
 		if currentCPS <= 0 {
 			time.Sleep(250 * time.Millisecond)
@@ -43,18 +57,28 @@ func (r *Runner) Run(ctx context.Context, sc config.Scenario) error {
 		}
 		interval := time.Second / time.Duration(currentCPS)
 		ticker := time.NewTicker(interval)
-
-		loopCtx, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Second))
+		secondDeadline := time.Now().Add(1 * time.Second)
 		for {
 			select {
-			case <-loopCtx.Done():
-				cancel()
+			case <-ctx.Done():
+				ticker.Stop()
+				wg.Wait()
+				return nil
+			case <-time.After(time.Until(secondDeadline)):
 				ticker.Stop()
 				goto nextSecond
 			case <-ticker.C:
+				select {
+				case sem <- struct{}{}:
+				case <-ctx.Done():
+					ticker.Stop()
+					wg.Wait()
+					return nil
+				}
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
+					defer func() { <-sem }()
 					r.executeOne(ctx, sc)
 				}()
 			}
@@ -79,7 +103,13 @@ func (r *Runner) executeOne(ctx context.Context, sc config.Scenario) {
 }
 
 func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
-	remote := fmt.Sprintf("%s:%d", sc.Target.Host, sc.Target.SIPPort)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	remote := net.JoinHostPort(sc.Target.Host, strconv.Itoa(sc.Target.SIPPort))
 	conn, err := net.Dial("udp", remote)
 	if err != nil {
 		r.metrics.ObserveSIP("REGISTER", "000", 0)
@@ -91,6 +121,10 @@ func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
 	req := sip.BuildRegister(sc.Target.Host, sc.Target.SIPPort, safeUser(sc), safeDomain(sc), cseq)
 	start := time.Now()
 	_ = conn.SetDeadline(time.Now().Add(1200 * time.Millisecond))
+	if err := contextErr(ctx); err != nil {
+		r.metrics.ObserveSIP("REGISTER", "499", time.Since(start))
+		return
+	}
 	if _, err := conn.Write([]byte(req)); err != nil {
 		r.metrics.ObserveSIP("REGISTER", "000", time.Since(start))
 		return
@@ -107,7 +141,13 @@ func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
 }
 
 func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia bool) {
-	remote := fmt.Sprintf("%s:%d", sc.Target.Host, sc.Target.SIPPort)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	remote := net.JoinHostPort(sc.Target.Host, strconv.Itoa(sc.Target.SIPPort))
 	conn, err := net.Dial("udp", remote)
 	if err != nil {
 		r.metrics.RecordCallAttempt(false, false)
@@ -125,6 +165,11 @@ func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia
 	invite := sip.BuildInvite(sc.Target.Host, sc.Target.SIPPort, fromUser, toUser, safeDomain(sc), cseq)
 	start := time.Now()
 	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	if err := contextErr(ctx); err != nil {
+		r.metrics.RecordCallAttempt(false, false)
+		r.metrics.ObserveSIP("INVITE", "499", time.Since(start))
+		return
+	}
 	if _, err := conn.Write([]byte(invite)); err != nil {
 		r.metrics.RecordCallAttempt(false, false)
 		r.metrics.ObserveSIP("INVITE", "000", time.Since(start))
@@ -179,7 +224,11 @@ func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia
 			r.metrics.RTPJitterMS.Set(rtpStats.JitterMS)
 			r.metrics.RTPMOSEstimated.Set(qos.EstimateMOS(rtpStats.LossPct, rtpStats.JitterMS, delayMS))
 		} else {
-			time.Sleep(time.Duration(sc.CallDurationSeconds) * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Duration(sc.CallDurationSeconds) * time.Second):
+			}
 		}
 
 		bye := sip.BuildBye(callID, fromUser, toUser, safeDomain(sc), toTag, cseq+1)
@@ -229,4 +278,13 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func contextErr(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("context cancelled")
+	default:
+		return nil
+	}
 }

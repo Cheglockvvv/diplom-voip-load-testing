@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -49,7 +50,11 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scJSON, _ := json.Marshal(sc)
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, s.workerURL+"/run", bytes.NewReader(scJSON))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, s.workerURL+"/run", bytes.NewReader(scJSON))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
+		return
+	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -57,8 +62,13 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write([]byte("scenario forwarded"))
+	if len(body) == 0 {
+		_, _ = w.Write([]byte("scenario forwarded"))
+		return
+	}
+	_, _ = w.Write(body)
 }
 
 func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
@@ -66,13 +76,22 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, s.workerURL+"/stop", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, s.workerURL+"/stop", nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
+		return
+	}
 	resp, err := s.client.Do(req)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("worker unreachable: %v", err), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write([]byte("stop forwarded"))
+	if len(body) == 0 {
+		_, _ = w.Write([]byte("stop forwarded"))
+		return
+	}
+	_, _ = w.Write(body)
 }

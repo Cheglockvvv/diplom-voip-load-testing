@@ -43,6 +43,10 @@ func runCmd(args []string) {
 		fmt.Printf("failed to load scenario: %v\n", err)
 		os.Exit(1)
 	}
+	if err := sc.Validate(); err != nil {
+		fmt.Printf("scenario validation error: %v\n", err)
+		os.Exit(1)
+	}
 	body, _ := json.Marshal(sc)
 	resp, err := http.Post(*controller+"/run", "application/json", bytes.NewReader(body))
 	if err != nil {
