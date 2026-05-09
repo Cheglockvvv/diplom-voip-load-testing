@@ -36,6 +36,7 @@ func (s *Server) Routes() http.Handler {
 	})
 	mux.HandleFunc("/run", s.handleRun)
 	mux.HandleFunc("/stop", s.handleStop)
+	mux.HandleFunc("/status", s.handleStatus)
 	return mux
 }
 
@@ -49,8 +50,14 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("invalid body: %v", err), http.StatusBadRequest)
 		return
 	}
+	if err := sc.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	scJSON, _ := json.Marshal(sc)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, s.workerURL+"/run", bytes.NewReader(scJSON))
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.workerURL+"/run", bytes.NewReader(scJSON))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
 		return
@@ -76,7 +83,9 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, s.workerURL+"/stop", nil)
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.workerURL+"/stop", nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
 		return
@@ -91,6 +100,33 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	if len(body) == 0 {
 		_, _ = w.Write([]byte("stop forwarded"))
+		return
+	}
+	_, _ = w.Write(body)
+}
+
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.workerURL+"/status", nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
+		return
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("worker unreachable: %v", err), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	w.WriteHeader(resp.StatusCode)
+	if len(body) == 0 {
+		_, _ = w.Write([]byte("{}"))
 		return
 	}
 	_, _ = w.Write(body)

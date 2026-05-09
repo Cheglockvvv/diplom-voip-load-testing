@@ -7,8 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
 	"sync/atomic"
+	"syscall"
+	"time"
 
 	"diplom_code/internal/config"
 	"diplom_code/internal/metrics"
@@ -23,6 +26,8 @@ func main() {
 	var mu sync.Mutex
 	var cancel context.CancelFunc
 	var running int32
+	var runSeq uint64
+	currentRunID := ""
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", reg.Handler())
@@ -31,12 +36,13 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.HandleFunc("/status", func(w http.ResponseWriter, _ *http.Request) {
-		state := "idle"
-		if atomic.LoadInt32(&running) == 1 {
-			state = "running"
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(fmt.Sprintf("{\"state\":\"%s\"}", state)))
+		mu.Lock()
+		runID := currentRunID
+		mu.Unlock()
+		writeJSON(w, http.StatusOK, statusResponse{
+			RunID: runID,
+			State: currentState(atomic.LoadInt32(&running)),
+		})
 	})
 	mux.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -58,18 +64,30 @@ func main() {
 		}
 		ctx, c := context.WithCancel(context.Background())
 		cancel = c
+		currentRunID = fmt.Sprintf("run-%d", atomic.AddUint64(&runSeq, 1))
+		runID := currentRunID
 		atomic.StoreInt32(&running, 1)
 		mu.Unlock()
 
 		go func() {
-			defer atomic.StoreInt32(&running, 0)
+			defer func() {
+				atomic.StoreInt32(&running, 0)
+				mu.Lock()
+				if currentRunID == runID {
+					currentRunID = ""
+				}
+				mu.Unlock()
+			}()
 			if err := runner.Run(ctx, sc); err != nil {
 				log.Printf("scenario stopped with error: %v", err)
 			}
 		}()
 
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte("scenario started"))
+		writeJSON(w, http.StatusAccepted, runResponse{
+			RunID:   runID,
+			State:   "started",
+			Message: "scenario started",
+		})
 	})
 	mux.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -77,17 +95,38 @@ func main() {
 			return
 		}
 		mu.Lock()
+		runID := currentRunID
 		if cancel != nil {
 			cancel()
 			cancel = nil
+			currentRunID = ""
 		}
 		mu.Unlock()
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("stopped"))
+		writeJSON(w, http.StatusOK, runResponse{
+			RunID:   runID,
+			State:   "stopped",
+			Message: "stopped",
+		})
 	})
 
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
 	log.Printf("worker listening on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		log.Printf("worker shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+	}()
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }
@@ -97,4 +136,28 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+type runResponse struct {
+	RunID   string `json:"run_id,omitempty"`
+	State   string `json:"state"`
+	Message string `json:"message,omitempty"`
+}
+
+type statusResponse struct {
+	RunID string `json:"run_id,omitempty"`
+	State string `json:"state"`
+}
+
+func writeJSON(w http.ResponseWriter, statusCode int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func currentState(v int32) string {
+	if v == 1 {
+		return "running"
+	}
+	return "idle"
 }

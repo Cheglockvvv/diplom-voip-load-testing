@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 
@@ -22,6 +21,8 @@ func main() {
 		runCmd(os.Args[2:])
 	case "stop":
 		stopCmd(os.Args[2:])
+	case "status":
+		statusCmd(os.Args[2:])
 	default:
 		usage()
 	}
@@ -54,8 +55,7 @@ func runCmd(args []string) {
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
-	out, _ := io.ReadAll(resp.Body)
-	fmt.Printf("status: %s\n%s\n", resp.Status, string(out))
+	printResponse(resp)
 }
 
 func stopCmd(args []string) {
@@ -69,12 +69,40 @@ func stopCmd(args []string) {
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
-	out, _ := io.ReadAll(resp.Body)
-	fmt.Printf("status: %s\n%s\n", resp.Status, string(out))
+	printResponse(resp)
+}
+
+func statusCmd(args []string) {
+	fs := flag.NewFlagSet("status", flag.ExitOnError)
+	controller := fs.String("controller", "http://localhost:8080", "Controller URL")
+	fs.Parse(args)
+
+	resp, err := http.Get(*controller + "/status")
+	if err != nil {
+		fmt.Printf("failed to call controller: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+	printResponse(resp)
+}
+
+func printResponse(resp *http.Response) {
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		fmt.Printf("status: %s\n", resp.Status)
+		return
+	}
+	fmt.Printf("status: %s\n", resp.Status)
+	for _, k := range []string{"run_id", "state", "message"} {
+		if v, ok := payload[k]; ok {
+			fmt.Printf("%s: %v\n", k, v)
+		}
+	}
 }
 
 func usage() {
 	fmt.Println("Usage:")
 	fmt.Println("  cli run -scenario scenarios/registration_storm.yaml [-controller http://localhost:8080]")
 	fmt.Println("  cli stop [-controller http://localhost:8080]")
+	fmt.Println("  cli status [-controller http://localhost:8080]")
 }
