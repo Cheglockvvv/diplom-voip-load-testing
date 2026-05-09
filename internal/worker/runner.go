@@ -120,24 +120,23 @@ func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
 	cseq := rand.Intn(100000) + 1
 	req := sip.BuildRegister(sc.Target.Host, sc.Target.SIPPort, safeUser(sc), safeDomain(sc), cseq)
 	start := time.Now()
-	_ = conn.SetDeadline(time.Now().Add(1200 * time.Millisecond))
-	if err := contextErr(ctx); err != nil {
-		r.metrics.ObserveSIP("REGISTER", "499", time.Since(start))
-		return
-	}
-	if _, err := conn.Write([]byte(req)); err != nil {
-		r.metrics.ObserveSIP("REGISTER", "000", time.Since(start))
+	resp, status := r.udpTransaction(ctx, conn, req, 2, 1200*time.Millisecond)
+	r.metrics.ObserveSIP("REGISTER", status, time.Since(start))
+	if status != "401" || sc.Target.Password == "" {
 		return
 	}
 
-	buf := make([]byte, 4096)
-	n, err := conn.Read(buf)
+	challenge, err := sip.ParseDigestChallenge(resp)
 	if err != nil {
-		r.metrics.ObserveSIP("REGISTER", "408", time.Since(start))
+		r.metrics.ObserveSIP("REGISTER", "401", time.Since(start))
 		return
 	}
-	status := sip.ParseStatusCode(string(buf[:n]))
-	r.metrics.ObserveSIP("REGISTER", status, time.Since(start))
+	uri := fmt.Sprintf("sip:%s", safeDomain(sc))
+	authHeader := sip.BuildDigestAuthorization(safeUser(sc), sc.Target.Password, "REGISTER", uri, challenge)
+	authReq := sip.BuildRegisterWithAuthorization(sc.Target.Host, sc.Target.SIPPort, safeUser(sc), safeDomain(sc), cseq+1, authHeader)
+	authStart := time.Now()
+	_, authStatus := r.udpTransaction(ctx, conn, authReq, 2, 1200*time.Millisecond)
+	r.metrics.ObserveSIP("REGISTER", authStatus, time.Since(authStart))
 }
 
 func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia bool) {
@@ -287,4 +286,27 @@ func contextErr(ctx context.Context) error {
 	default:
 		return nil
 	}
+}
+
+func (r *Runner) udpTransaction(ctx context.Context, conn net.Conn, request string, attempts int, timeout time.Duration) (string, string) {
+	if attempts < 1 {
+		attempts = 1
+	}
+	buf := make([]byte, 8192)
+	for i := 0; i < attempts; i++ {
+		if err := contextErr(ctx); err != nil {
+			return "", "499"
+		}
+		_ = conn.SetDeadline(time.Now().Add(timeout))
+		if _, err := conn.Write([]byte(request)); err != nil {
+			continue
+		}
+		n, err := conn.Read(buf)
+		if err != nil {
+			continue
+		}
+		resp := string(buf[:n])
+		return resp, sip.ParseStatusCode(resp)
+	}
+	return "", "408"
 }

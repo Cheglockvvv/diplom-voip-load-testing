@@ -8,11 +8,19 @@ import (
 )
 
 func BuildRegister(host string, port int, user, domain string, cseq int) string {
+	return buildRegister(host, port, user, domain, cseq, "")
+}
+
+func BuildRegisterWithAuthorization(host string, port int, user, domain string, cseq int, authorization string) string {
+	return buildRegister(host, port, user, domain, cseq, authorization)
+}
+
+func buildRegister(host string, port int, user, domain string, cseq int, authorization string) string {
 	branch := randomToken()
 	callID := fmt.Sprintf("%s@%s", randomToken(), host)
 	tag := randomToken()
 	uri := fmt.Sprintf("sip:%s@%s", user, domain)
-	return strings.Join([]string{
+	headers := []string{
 		fmt.Sprintf("REGISTER sip:%s SIP/2.0", domain),
 		fmt.Sprintf("Via: SIP/2.0/UDP tester;branch=z9hG4bK-%s", branch),
 		"Max-Forwards: 70",
@@ -22,10 +30,12 @@ func BuildRegister(host string, port int, user, domain string, cseq int) string 
 		fmt.Sprintf("CSeq: %d REGISTER", cseq),
 		fmt.Sprintf("Contact: <sip:%s@tester:%d>", user, port),
 		"Expires: 300",
-		"Content-Length: 0",
-		"",
-		"",
-	}, "\r\n")
+	}
+	if authorization != "" {
+		headers = append(headers, fmt.Sprintf("Authorization: %s", authorization))
+	}
+	headers = append(headers, "Content-Length: 0", "", "")
+	return strings.Join(headers, "\r\n")
 }
 
 func BuildInvite(host string, port int, fromUser, toUser, domain string, cseq int) string {
@@ -109,6 +119,16 @@ func ParseCallID(resp string) string {
 		}
 	}
 	return randomToken()
+}
+
+func HeaderValue(resp, headerName string) string {
+	prefix := strings.ToLower(headerName) + ":"
+	for _, line := range strings.Split(resp, "\r\n") {
+		if strings.HasPrefix(strings.ToLower(line), prefix) {
+			return strings.TrimSpace(line[len(prefix):])
+		}
+	}
+	return ""
 }
 
 func randomToken() string {
