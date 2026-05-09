@@ -1,0 +1,20 @@
+name: registration_storm_mvp
+mode: registration_storm
+users: 2000
+cps: 120
+duration_seconds: 120
+ramp_up_seconds: 20
+ramp_down_seconds: 20
+call_duration_seconds: 5
+target:
+  host: asterisk
+  sip_port: 5060
+  rtp_port: 10000
+  username: "1000"
+  password: "1000"
+  domain: "asterisk"
+rtp:
+  enabled: false
+  packet_ms: 20
+  payload_size: 160
+  codec: "G.711"

@@ -1,0 +1,52 @@
+{
+  "title": "VoIP Load Dashboard",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "SIP Requests/sec",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(voip_worker_sip_requests_total[1m])) by (method,status)",
+          "legendFormat": "{{method}} {{status}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "ASR",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "voip_worker_asr_ratio" }]
+    },
+    {
+      "type": "stat",
+      "title": "NER",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "voip_worker_ner_ratio" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "SRD P95",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(voip_worker_session_request_delay_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RTP QoS",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
+      "targets": [
+        { "expr": "voip_worker_rtp_jitter_ms", "legendFormat": "jitter_ms" },
+        { "expr": "voip_worker_rtp_packet_loss_pct", "legendFormat": "loss_pct" },
+        { "expr": "voip_worker_rtp_mos_estimated", "legendFormat": "mos" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package control;
+
+option go_package = "diplom_code/api/controlpb";
+
+service ControlService {
+  rpc StartScenario(StartScenarioRequest) returns (StartScenarioResponse);
+  rpc StopScenario(StopScenarioRequest) returns (StopScenarioResponse);
+  rpc StreamStatus(StreamStatusRequest) returns (stream StatusEvent);
+}
+
+message StartScenarioRequest {
+  string scenario_yaml = 1;
+}
+
+message StartScenarioResponse {
+  string run_id = 1;
+  string message = 2;
+}
+
+message StopScenarioRequest {
+  string run_id = 1;
+}
+
+message StopScenarioResponse {
+  string message = 1;
+}
+
+message StreamStatusRequest {
+  string run_id = 1;
+}
+
+message StatusEvent {
+  string state = 1;
+  string details = 2;
+  int64 unix_ts = 3;
+}

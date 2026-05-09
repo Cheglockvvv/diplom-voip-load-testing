@@ -1,0 +1,20 @@
+name: call_setup_rate_mvp
+mode: call_setup_rate
+users: 1000
+cps: 60
+duration_seconds: 180
+ramp_up_seconds: 30
+ramp_down_seconds: 30
+call_duration_seconds: 10
+target:
+  host: asterisk
+  sip_port: 5060
+  rtp_port: 10000
+  username: "1000"
+  password: "1000"
+  domain: "asterisk"
+rtp:
+  enabled: false
+  packet_ms: 20
+  payload_size: 160
+  codec: "G.711"

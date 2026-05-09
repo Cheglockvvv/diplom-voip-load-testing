@@ -1,0 +1,70 @@
+services:
+  asterisk:
+    image: andrius/asterisk:latest
+    container_name: voip-asterisk
+    ports:
+      - "5060:5060/udp"
+      - "10000-10100:10000-10100/udp"
+    volumes:
+      - ./asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        APP: worker
+    container_name: voip-worker
+    environment:
+      - WORKER_ADDR=:8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      - asterisk
+    restart: unless-stopped
+
+  controller:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        APP: controller
+    container_name: voip-controller
+    environment:
+      - CONTROLLER_ADDR=:8080
+      - WORKER_URL=http://worker:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: voip-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - controller
+      - worker
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: voip-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
