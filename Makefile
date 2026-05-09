@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: build test fmt run-worker run-controller run-cli-s1 run-cli-s2 run-cli-s3
+.PHONY: build test fmt run-worker run-controller run-cli-s1 run-cli-s2 run-cli-s3 run-cli-status
 
 build:
 	go build ./...
@@ -25,3 +25,6 @@ run-cli-s2:
 
 run-cli-s3:
 	go run ./cmd/cli run -controller http://localhost:8080 -scenario scenarios/media_stress.yaml
+
+run-cli-status:
+	go run ./cmd/cli status -controller http://localhost:8080

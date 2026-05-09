@@ -9,6 +9,11 @@ services:
       - ./asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
       - ./asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "asterisk -rx 'core show uptime' || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
 
   worker:
     build:
@@ -22,8 +27,14 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      - asterisk
+      asterisk:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8081/health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
 
   controller:
     build:
@@ -38,8 +49,14 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - worker
+      worker:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
 
   prometheus:
     image: prom/prometheus:v2.54.1
@@ -49,9 +66,16 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
-      - controller
-      - worker
+      controller:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:9090/-/healthy | grep -q Healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
 
   grafana:
     image: grafana/grafana:11.2.0
@@ -66,5 +90,11 @@ services:
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/api/health | grep -q ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 8

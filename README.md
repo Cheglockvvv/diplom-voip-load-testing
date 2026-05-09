@@ -18,6 +18,8 @@ MVP фреймворк для нагрузочного тестирования 
    - `go run ./cmd/cli run -controller http://localhost:8080 -scenario scenarios/registration_storm.yaml`
 4. Остановить:
    - `go run ./cmd/cli stop -controller http://localhost:8080`
+5. Проверить состояние выполнения:
+   - `go run ./cmd/cli status -controller http://localhost:8080`
 
 ## Метрики
 - Worker metrics: `http://localhost:8081/metrics`
@@ -57,6 +59,11 @@ MVP фреймворк для нагрузочного тестирования 
   - `make test`
   - `make build`
   - `make run-cli-s1|run-cli-s2|run-cli-s3`
+
+## Runtime operations
+- `POST /run` теперь возвращает `run_id`, что позволяет трассировать конкретный прогон.
+- `GET /status` на controller проксирует состояние worker (`idle|running`) и текущий `run_id`.
+- Controller и Worker поддерживают graceful shutdown по `SIGINT/SIGTERM` с таймаутом 10 секунд.
 
 ## Commit strategy
 - Коммиты делать по смысловым блокам, 1 блок = 1 commit:
