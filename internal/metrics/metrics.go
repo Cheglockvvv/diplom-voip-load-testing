@@ -13,6 +13,7 @@ type Registry struct {
 	reg *prometheus.Registry
 
 	SIPRequestsTotal *prometheus.CounterVec
+	SIPRetriesTotal  *prometheus.CounterVec
 	RRDSeconds       prometheus.Histogram
 	SRDSeconds       prometheus.Histogram
 	ActiveCalls      prometheus.Gauge
@@ -34,6 +35,12 @@ func NewRegistry(component string) *Registry {
 		Name:      "sip_requests_total",
 		Help:      "Number of SIP requests by method and status.",
 	}, []string{"method", "status"})
+	r.SIPRetriesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "voip",
+		Subsystem: component,
+		Name:      "sip_retries_total",
+		Help:      "Number of SIP request retries.",
+	}, []string{"method"})
 	r.RRDSeconds = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "voip",
 		Subsystem: component,
@@ -81,6 +88,7 @@ func NewRegistry(component string) *Registry {
 
 	r.reg.MustRegister(
 		r.SIPRequestsTotal,
+		r.SIPRetriesTotal,
 		r.RRDSeconds,
 		r.SRDSeconds,
 		r.ActiveCalls,
@@ -115,6 +123,10 @@ func NewRegistry(component string) *Registry {
 	)
 
 	return r
+}
+
+func (r *Registry) ObserveRetry(method string) {
+	r.SIPRetriesTotal.WithLabelValues(method).Inc()
 }
 
 func (r *Registry) Handler() http.Handler {

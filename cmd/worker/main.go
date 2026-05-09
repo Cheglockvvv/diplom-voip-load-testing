@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -30,12 +31,17 @@ func main() {
 	currentRunID := ""
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", reg.Handler())
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+	mux.Handle("GET /metrics", reg.Handler())
+	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+	mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("/status", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /status", func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		runID := currentRunID
 		mu.Unlock()
@@ -44,11 +50,7 @@ func main() {
 			State: currentState(atomic.LoadInt32(&running)),
 		})
 	})
-	mux.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+	mux.HandleFunc("POST /run", func(w http.ResponseWriter, r *http.Request) {
 		var sc config.Scenario
 		if err := json.NewDecoder(r.Body).Decode(&sc); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -89,11 +91,7 @@ func main() {
 			Message: "scenario started",
 		})
 	})
-	mux.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+	mux.HandleFunc("POST /stop", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		runID := currentRunID
 		if cancel != nil {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	"diplom_code/internal/config"
@@ -29,22 +30,23 @@ func NewServer(workerURL string, m *metrics.Registry) *Server {
 
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", s.metrics.Handler())
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+	mux.Handle("GET /metrics", s.metrics.Handler())
+	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+	mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("/run", s.handleRun)
-	mux.HandleFunc("/stop", s.handleStop)
-	mux.HandleFunc("/status", s.handleStatus)
+	mux.HandleFunc("POST /run", s.handleRun)
+	mux.HandleFunc("POST /stop", s.handleStop)
+	mux.HandleFunc("GET /status", s.handleStatus)
 	return mux
 }
 
 func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var sc config.Scenario
 	if err := json.NewDecoder(r.Body).Decode(&sc); err != nil {
 		http.Error(w, fmt.Sprintf("invalid body: %v", err), http.StatusBadRequest)
@@ -79,10 +81,6 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.workerURL+"/stop", nil)
@@ -106,10 +104,6 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.workerURL+"/status", nil)

@@ -120,7 +120,7 @@ func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
 	cseq := rand.Intn(100000) + 1
 	req := sip.BuildRegister(sc.Target.Host, sc.Target.SIPPort, safeUser(sc), safeDomain(sc), cseq)
 	start := time.Now()
-	resp, status := r.udpTransaction(ctx, conn, req, 2, 1200*time.Millisecond)
+	resp, status := r.udpTransaction(ctx, conn, req, "REGISTER", 2, 1200*time.Millisecond)
 	r.metrics.ObserveSIP("REGISTER", status, time.Since(start))
 	if status != "401" || sc.Target.Password == "" {
 		return
@@ -135,7 +135,7 @@ func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
 	authHeader := sip.BuildDigestAuthorization(safeUser(sc), sc.Target.Password, "REGISTER", uri, challenge)
 	authReq := sip.BuildRegisterWithAuthorization(sc.Target.Host, sc.Target.SIPPort, safeUser(sc), safeDomain(sc), cseq+1, authHeader)
 	authStart := time.Now()
-	_, authStatus := r.udpTransaction(ctx, conn, authReq, 2, 1200*time.Millisecond)
+	_, authStatus := r.udpTransaction(ctx, conn, authReq, "REGISTER", 2, 1200*time.Millisecond)
 	r.metrics.ObserveSIP("REGISTER", authStatus, time.Since(authStart))
 }
 
@@ -288,25 +288,38 @@ func contextErr(ctx context.Context) error {
 	}
 }
 
-func (r *Runner) udpTransaction(ctx context.Context, conn net.Conn, request string, attempts int, timeout time.Duration) (string, string) {
+func (r *Runner) udpTransaction(ctx context.Context, conn net.Conn, request string, method string, attempts int, timeout time.Duration) (string, string) {
 	if attempts < 1 {
 		attempts = 1
 	}
 	buf := make([]byte, 8192)
+	backoff := timeout
 	for i := 0; i < attempts; i++ {
+		if i > 0 {
+			r.metrics.ObserveRetry(method)
+		}
 		if err := contextErr(ctx); err != nil {
 			return "", "499"
 		}
-		_ = conn.SetDeadline(time.Now().Add(timeout))
+		_ = conn.SetDeadline(time.Now().Add(backoff))
 		if _, err := conn.Write([]byte(request)); err != nil {
+			backoff = minDuration(backoff*2, 3*time.Second)
 			continue
 		}
 		n, err := conn.Read(buf)
 		if err != nil {
+			backoff = minDuration(backoff*2, 3*time.Second)
 			continue
 		}
 		resp := string(buf[:n])
 		return resp, sip.ParseStatusCode(resp)
 	}
 	return "", "408"
+}
+
+func minDuration(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
 }
