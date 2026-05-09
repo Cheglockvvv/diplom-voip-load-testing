@@ -6,6 +6,8 @@ duration_seconds: 180
 ramp_up_seconds: 30
 ramp_down_seconds: 30
 call_duration_seconds: 10
+sip_timeout_ms: 1500
+sip_retry_attempts: 2
 target:
   host: asterisk
   sip_port: 5060

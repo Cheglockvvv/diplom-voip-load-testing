@@ -17,6 +17,8 @@ type Scenario struct {
 	RampUpSeconds       int          `yaml:"ramp_up_seconds" json:"ramp_up_seconds"`
 	RampDownSeconds     int          `yaml:"ramp_down_seconds" json:"ramp_down_seconds"`
 	CallDurationSeconds int          `yaml:"call_duration_seconds" json:"call_duration_seconds"`
+	SIPTimeoutMS        int          `yaml:"sip_timeout_ms" json:"sip_timeout_ms"`
+	SIPRetryAttempts    int          `yaml:"sip_retry_attempts" json:"sip_retry_attempts"`
 	Target              TargetConfig `yaml:"target" json:"target"`
 	RTP                 RTPConfig    `yaml:"rtp" json:"rtp"`
 }
@@ -66,6 +68,12 @@ func (s *Scenario) fillDefaults() {
 	if s.CallDurationSeconds <= 0 {
 		s.CallDurationSeconds = 20
 	}
+	if s.SIPTimeoutMS <= 0 {
+		s.SIPTimeoutMS = 1200
+	}
+	if s.SIPRetryAttempts <= 0 {
+		s.SIPRetryAttempts = 2
+	}
 	if s.Target.SIPPort == 0 {
 		s.Target.SIPPort = 5060
 	}
@@ -100,6 +108,12 @@ func (s Scenario) Validate() error {
 	}
 	if s.Target.SIPPort <= 0 {
 		return fmt.Errorf("target.sip_port must be > 0")
+	}
+	if s.SIPTimeoutMS <= 0 {
+		return fmt.Errorf("sip_timeout_ms must be > 0")
+	}
+	if s.SIPRetryAttempts <= 0 {
+		return fmt.Errorf("sip_retry_attempts must be > 0")
 	}
 	if s.RTP.Enabled && s.Target.RTPPort <= 0 {
 		return fmt.Errorf("target.rtp_port must be > 0 when rtp.enabled=true")

@@ -120,7 +120,8 @@ func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
 	cseq := rand.Intn(100000) + 1
 	req := sip.BuildRegister(sc.Target.Host, sc.Target.SIPPort, safeUser(sc), safeDomain(sc), cseq)
 	start := time.Now()
-	resp, status := r.udpTransaction(ctx, conn, req, "REGISTER", 2, 1200*time.Millisecond)
+	sipTimeout := time.Duration(sc.SIPTimeoutMS) * time.Millisecond
+	resp, status := r.udpTransaction(ctx, conn, req, "REGISTER", sc.SIPRetryAttempts, sipTimeout)
 	r.metrics.ObserveSIP("REGISTER", status, time.Since(start))
 	if status != "401" || sc.Target.Password == "" {
 		return
@@ -135,7 +136,7 @@ func (r *Runner) runRegistration(ctx context.Context, sc config.Scenario) {
 	authHeader := sip.BuildDigestAuthorization(safeUser(sc), sc.Target.Password, "REGISTER", uri, challenge)
 	authReq := sip.BuildRegisterWithAuthorization(sc.Target.Host, sc.Target.SIPPort, safeUser(sc), safeDomain(sc), cseq+1, authHeader)
 	authStart := time.Now()
-	_, authStatus := r.udpTransaction(ctx, conn, authReq, "REGISTER", 2, 1200*time.Millisecond)
+	_, authStatus := r.udpTransaction(ctx, conn, authReq, "REGISTER", sc.SIPRetryAttempts, sipTimeout)
 	r.metrics.ObserveSIP("REGISTER", authStatus, time.Since(authStart))
 }
 
@@ -163,34 +164,28 @@ func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia
 	toUser := "1001"
 	invite := sip.BuildInvite(sc.Target.Host, sc.Target.SIPPort, fromUser, toUser, safeDomain(sc), cseq)
 	start := time.Now()
-	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	sipTimeout := time.Duration(sc.SIPTimeoutMS) * time.Millisecond
+	_ = conn.SetDeadline(time.Now().Add(sipTimeout))
 	if err := contextErr(ctx); err != nil {
 		r.metrics.RecordCallAttempt(false, false)
 		r.metrics.ObserveSIP("INVITE", "499", time.Since(start))
 		return
 	}
-	if _, err := conn.Write([]byte(invite)); err != nil {
-		r.metrics.RecordCallAttempt(false, false)
-		r.metrics.ObserveSIP("INVITE", "000", time.Since(start))
-		return
-	}
 
-	buf := make([]byte, 8192)
-	n, err := conn.Read(buf)
-	if err != nil {
+	resp, status := r.udpTransaction(ctx, conn, invite, "INVITE", sc.SIPRetryAttempts, sipTimeout)
+	if status == "408" || status == "000" || status == "499" {
 		r.metrics.RecordCallAttempt(false, false)
-		r.metrics.ObserveSIP("INVITE", "408", time.Since(start))
+		r.metrics.ObserveSIP("INVITE", status, time.Since(start))
 		return
 	}
-	resp := string(buf[:n])
-	status := sip.ParseStatusCode(resp)
 	r.metrics.ObserveSIP("INVITE", status, time.Since(start))
 
 	answered := status == "200"
 	networkOK := answered || status == "486" || status == "480"
 	if strings.HasPrefix(status, "18") {
 		fsm.OnProvisional()
-		_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+		buf := make([]byte, 8192)
+		_ = conn.SetDeadline(time.Now().Add(sipTimeout))
 		n2, err2 := conn.Read(buf)
 		if err2 == nil {
 			resp2 := string(buf[:n2])

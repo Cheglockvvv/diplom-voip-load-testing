@@ -29,6 +29,7 @@ MVP фреймворк для нагрузочного тестирования 
 
 Основные метрики:
 - `voip_worker_sip_requests_total`
+- `voip_worker_sip_retries_total`
 - `voip_worker_registration_delay_seconds`
 - `voip_worker_session_request_delay_seconds`
 - `voip_worker_asr_ratio`, `voip_worker_ner_ratio`
@@ -64,6 +65,9 @@ MVP фреймворк для нагрузочного тестирования 
 - `POST /run` теперь возвращает `run_id`, что позволяет трассировать конкретный прогон.
 - `GET /status` на controller проксирует состояние worker (`idle|running`) и текущий `run_id`.
 - Controller и Worker поддерживают graceful shutdown по `SIGINT/SIGTERM` с таймаутом 10 секунд.
+- В сценариях можно настраивать SIP транспорт:
+  - `sip_timeout_ms` (таймаут SIP транзакции)
+  - `sip_retry_attempts` (количество попыток отправки SIP запроса)
 
 ## Commit strategy
 - Коммиты делать по смысловым блокам, 1 блок = 1 commit:
