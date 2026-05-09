@@ -12,6 +12,7 @@ import (
 	"diplom_code/internal/config"
 	"diplom_code/internal/metrics"
 	"google.golang.org/grpc"
+	"io"
 )
 
 type Server struct {
@@ -43,6 +44,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /run", s.handleRun)
 	mux.HandleFunc("POST /stop", s.handleStop)
 	mux.HandleFunc("GET /status", s.handleStatus)
+	mux.HandleFunc("GET /status/stream", s.handleStatusStream)
 	return mux
 }
 
@@ -97,4 +99,36 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) handleStatusStream(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	stream, err := s.workerClient.StreamStatus(ctx, &control.StreamStatusRequest{}, s.grpcOpts...)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("worker stream failed: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.WriteHeader(http.StatusOK)
+	flusher, _ := w.(http.Flusher)
+	enc := json.NewEncoder(w)
+
+	for {
+		event, recvErr := stream.Recv()
+		if recvErr != nil {
+			if recvErr == io.EOF {
+				return
+			}
+			return
+		}
+		if err := enc.Encode(event); err != nil {
+			return
+		}
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
 }

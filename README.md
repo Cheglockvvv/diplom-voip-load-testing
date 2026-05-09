@@ -65,6 +65,7 @@ MVP фреймворк для нагрузочного тестирования 
 ## Runtime operations
 - `POST /run` теперь возвращает `run_id`, что позволяет трассировать конкретный прогон.
 - `GET /status` на controller проксирует состояние worker (`idle|running`) и текущий `run_id`.
+- `GET /status/stream` на controller отдает поток NDJSON-событий статуса из gRPC `StreamStatus`.
 - Controller и Worker поддерживают graceful shutdown по `SIGINT/SIGTERM` с таймаутом 10 секунд.
 - В сценариях можно настраивать SIP транспорт:
   - `sip_timeout_ms` (таймаут SIP транзакции)

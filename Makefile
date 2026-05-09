@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: build test fmt run-worker run-controller run-cli-s1 run-cli-s2 run-cli-s3 run-cli-status
+.PHONY: build test fmt run-worker run-controller run-cli-s1 run-cli-s2 run-cli-s3 run-cli-status run-cli-watch-status
 
 build:
 	go build ./...
@@ -28,3 +28,6 @@ run-cli-s3:
 
 run-cli-status:
 	go run ./cmd/cli status -controller http://localhost:8080
+
+run-cli-watch-status:
+	go run ./cmd/cli watch-status -controller http://localhost:8080

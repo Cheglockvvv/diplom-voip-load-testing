@@ -23,6 +23,8 @@ func main() {
 		stopCmd(os.Args[2:])
 	case "status":
 		statusCmd(os.Args[2:])
+	case "watch-status":
+		watchStatusCmd(os.Args[2:])
 	default:
 		usage()
 	}
@@ -86,6 +88,33 @@ func statusCmd(args []string) {
 	printResponse(resp)
 }
 
+func watchStatusCmd(args []string) {
+	fs := flag.NewFlagSet("watch-status", flag.ExitOnError)
+	controller := fs.String("controller", "http://localhost:8080", "Controller URL")
+	fs.Parse(args)
+
+	resp, err := http.Get(*controller + "/status/stream")
+	if err != nil {
+		fmt.Printf("failed to call controller: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("status: %s\n", resp.Status)
+		return
+	}
+
+	dec := json.NewDecoder(resp.Body)
+	for {
+		var event map[string]any
+		if err := dec.Decode(&event); err != nil {
+			return
+		}
+		out, _ := json.Marshal(event)
+		fmt.Println(string(out))
+	}
+}
+
 func printResponse(resp *http.Response) {
 	var payload map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -105,4 +134,5 @@ func usage() {
 	fmt.Println("  cli run -scenario scenarios/registration_storm.yaml [-controller http://localhost:8080]")
 	fmt.Println("  cli stop [-controller http://localhost:8080]")
 	fmt.Println("  cli status [-controller http://localhost:8080]")
+	fmt.Println("  cli watch-status [-controller http://localhost:8080]")
 }
