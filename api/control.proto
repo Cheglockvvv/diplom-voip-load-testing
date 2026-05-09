@@ -7,11 +7,12 @@ option go_package = "diplom_code/api/controlpb";
 service ControlService {
   rpc StartScenario(StartScenarioRequest) returns (StartScenarioResponse);
   rpc StopScenario(StopScenarioRequest) returns (StopScenarioResponse);
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
   rpc StreamStatus(StreamStatusRequest) returns (stream StatusEvent);
 }
 
 message StartScenarioRequest {
-  string scenario_yaml = 1;
+  string scenario_json = 1;
 }
 
 message StartScenarioResponse {
@@ -24,7 +25,18 @@ message StopScenarioRequest {
 }
 
 message StopScenarioResponse {
-  string message = 1;
+  string run_id = 1;
+  string message = 2;
+}
+
+message StatusRequest {
+  string run_id = 1;
+}
+
+message StatusResponse {
+  string run_id = 1;
+  string state = 2;
+  string message = 3;
 }
 
 message StreamStatusRequest {
@@ -32,7 +44,8 @@ message StreamStatusRequest {
 }
 
 message StatusEvent {
-  string state = 1;
-  string details = 2;
-  int64 unix_ts = 3;
+  string run_id = 1;
+  string state = 2;
+  string details = 3;
+  int64 unix_time = 4;
 }

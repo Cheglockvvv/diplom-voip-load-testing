@@ -24,8 +24,10 @@ services:
     container_name: voip-worker
     environment:
       - WORKER_ADDR=:8081
+      - WORKER_GRPC_ADDR=:19091
     ports:
       - "8081:8081"
+      - "19091:19091"
     depends_on:
       asterisk:
         condition: service_healthy
@@ -45,7 +47,7 @@ services:
     container_name: voip-controller
     environment:
       - CONTROLLER_ADDR=:8080
-      - WORKER_URL=http://worker:8081
+      - WORKER_GRPC_ADDR=worker:19091
     ports:
       - "8080:8080"
     depends_on:

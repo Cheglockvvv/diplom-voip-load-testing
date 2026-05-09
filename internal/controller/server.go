@@ -1,30 +1,30 @@
 package controller
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/pprof"
 	"time"
 
+	"diplom_code/api/control"
 	"diplom_code/internal/config"
 	"diplom_code/internal/metrics"
+	"google.golang.org/grpc"
 )
 
 type Server struct {
-	workerURL string
-	metrics   *metrics.Registry
-	client    *http.Client
+	workerClient control.ControlServiceClient
+	metrics      *metrics.Registry
+	grpcOpts     []grpc.CallOption
 }
 
-func NewServer(workerURL string, m *metrics.Registry) *Server {
+func NewServer(workerClient control.ControlServiceClient, m *metrics.Registry) *Server {
 	return &Server{
-		workerURL: workerURL,
-		metrics:   m,
-		client:    &http.Client{Timeout: 10 * time.Second},
+		workerClient: workerClient,
+		metrics:      m,
+		grpcOpts:     []grpc.CallOption{grpc.ForceCodec(control.JSONCodec{})},
 	}
 }
 
@@ -56,72 +56,45 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	scJSON, _ := json.Marshal(sc)
+	scJSON, err := json.Marshal(sc)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("marshal scenario error: %v", err), http.StatusInternalServerError)
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.workerURL+"/run", bytes.NewReader(scJSON))
+	resp, err := s.workerClient.StartScenario(ctx, &control.StartScenarioRequest{ScenarioJSON: string(scJSON)}, s.grpcOpts...)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("worker start failed: %v", err), http.StatusBadGateway)
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.client.Do(req)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("worker unreachable: %v", err), http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	w.WriteHeader(resp.StatusCode)
-	if len(body) == 0 {
-		_, _ = w.Write([]byte("scenario forwarded"))
-		return
-	}
-	_, _ = w.Write(body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.workerURL+"/stop", nil)
+	resp, err := s.workerClient.StopScenario(ctx, &control.StopScenarioRequest{}, s.grpcOpts...)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("worker stop failed: %v", err), http.StatusBadGateway)
 		return
 	}
-	resp, err := s.client.Do(req)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("worker unreachable: %v", err), http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	w.WriteHeader(resp.StatusCode)
-	if len(body) == 0 {
-		_, _ = w.Write([]byte("stop forwarded"))
-		return
-	}
-	_, _ = w.Write(body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.workerURL+"/status", nil)
+	resp, err := s.workerClient.GetStatus(ctx, &control.StatusRequest{}, s.grpcOpts...)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("build request error: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("worker status failed: %v", err), http.StatusBadGateway)
 		return
 	}
-	resp, err := s.client.Do(req)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("worker unreachable: %v", err), http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	w.WriteHeader(resp.StatusCode)
-	if len(body) == 0 {
-		_, _ = w.Write([]byte("{}"))
-		return
-	}
-	_, _ = w.Write(body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }

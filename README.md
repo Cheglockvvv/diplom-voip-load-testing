@@ -14,6 +14,7 @@ MVP фреймворк для нагрузочного тестирования 
 2. Проверить health:
    - `http://localhost:8080/health` (controller)
    - `http://localhost:8081/health` (worker)
+   - gRPC control plane: `localhost:19091` (worker)
 3. Запустить сценарий:
    - `go run ./cmd/cli run -controller http://localhost:8080 -scenario scenarios/registration_storm.yaml`
 4. Остановить:
@@ -45,8 +46,8 @@ MVP фреймворк для нагрузочного тестирования 
 - Шаблон результатов: `docs/results-template.md`
 
 ## Примечания
-- Файл `api/control.proto` добавлен как контракт для следующего этапа миграции controller<->worker на полноценный gRPC streaming.
-- В текущем MVP управление реализовано через HTTP API для упрощения запуска без генерации protobuf кода.
+- Управление `controller -> worker` выполняется через gRPC (`ControlService`) с методами `StartScenario`, `StopScenario`, `GetStatus`, `StreamStatus`.
+- Для упрощения локальной разработки применяется JSON codec поверх gRPC (без генерации protobuf-кода на текущем этапе).
 
 ## Production workflow
 - Локальная проверка перед каждым push:

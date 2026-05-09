@@ -2,28 +2,25 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"diplom_code/api/control"
 	"diplom_code/internal/config"
 	"diplom_code/internal/metrics"
+	"google.golang.org/grpc"
 )
 
 func TestHandleStatusProxy(t *testing.T) {
-	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/status" {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"run_id":"run-1","state":"running"}`))
-	}))
-	defer worker.Close()
-
-	s := NewServer(worker.URL, metrics.NewRegistry("controller_test"))
+	s := NewServer(&fakeControlClient{
+		status: &control.StatusResponse{
+			RunID: "run-1",
+			State: "running",
+		},
+	}, metrics.NewRegistry("controller_test"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/status", nil)
 	s.Routes().ServeHTTP(rec, req)
@@ -37,12 +34,7 @@ func TestHandleStatusProxy(t *testing.T) {
 }
 
 func TestHandleRunRejectsInvalidScenario(t *testing.T) {
-	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusAccepted)
-	}))
-	defer worker.Close()
-
-	s := NewServer(worker.URL, metrics.NewRegistry("controller_test"))
+	s := NewServer(&fakeControlClient{}, metrics.NewRegistry("controller_test"))
 	invalid := config.Scenario{
 		Name:            "invalid",
 		Mode:            "registration_storm",
@@ -61,4 +53,35 @@ func TestHandleRunRejectsInvalidScenario(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid scenario, got %d", rec.Code)
 	}
+}
+
+type fakeControlClient struct {
+	start  *control.StartScenarioResponse
+	stop   *control.StopScenarioResponse
+	status *control.StatusResponse
+}
+
+func (f *fakeControlClient) StartScenario(context.Context, *control.StartScenarioRequest, ...grpc.CallOption) (*control.StartScenarioResponse, error) {
+	if f.start != nil {
+		return f.start, nil
+	}
+	return &control.StartScenarioResponse{RunID: "run-1", Message: "ok"}, nil
+}
+
+func (f *fakeControlClient) StopScenario(context.Context, *control.StopScenarioRequest, ...grpc.CallOption) (*control.StopScenarioResponse, error) {
+	if f.stop != nil {
+		return f.stop, nil
+	}
+	return &control.StopScenarioResponse{RunID: "run-1", Message: "stopped"}, nil
+}
+
+func (f *fakeControlClient) GetStatus(context.Context, *control.StatusRequest, ...grpc.CallOption) (*control.StatusResponse, error) {
+	if f.status != nil {
+		return f.status, nil
+	}
+	return &control.StatusResponse{State: "idle"}, nil
+}
+
+func (f *fakeControlClient) StreamStatus(context.Context, *control.StreamStatusRequest, ...grpc.CallOption) (control.ControlService_StreamStatusClient, error) {
+	return nil, nil
 }
