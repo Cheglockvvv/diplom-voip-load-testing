@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  go-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Verify formatting
+        run: |
+          gofmt -l ./cmd ./internal > fmt.out
+          if [ -s fmt.out ]; then
+            echo "These files are not formatted:"
+            cat fmt.out
+            exit 1
+          fi
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build
+        run: go build ./...
