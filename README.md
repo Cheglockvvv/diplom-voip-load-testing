@@ -50,6 +50,7 @@ MVP фреймворк для нагрузочного тестирования 
 - End-to-end процесс: `docs/end-to-end-flow.md`
 - Актуальные результаты тестирования: `docs/testing-results-2026-05-14.md`
 - Чеклист скриншотов Grafana: `docs/grafana-screenshot-checklist.md`
+- Сводный пакет для синка с LLM: `docs/diploma-sync-pack.md`
 
 ## Примечания
 - Управление `controller -> worker` выполняется через gRPC (`ControlService`) с методами `StartScenario`, `StopScenario`, `GetStatus`, `StreamStatus`.
