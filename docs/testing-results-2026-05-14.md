@@ -53,9 +53,45 @@
 Результат:
 - gRPC control plane и status streaming работают корректно.
 
-## Ограничения этого прогона
-- Полный Docker-стенд не выполнен в этой сессии, так как `docker` отсутствовал в PATH.
-- Для диплома рекомендуется повторить контейнерный прогон по `docs/final-runbook.md` и приложить скриншоты Grafana.
+## 4) Полный Docker-прогон сценариев
+
+Стенд:
+- `docker compose -f deploy/docker-compose.yml up -d`
+- Проверка health:
+  - controller: `ok`
+  - worker: `ok`
+  - Prometheus: `Healthy`
+  - Grafana API: `database=ok`
+
+Фактические прогоны:
+1. `registration_storm.yaml`:
+   - старт: `22:56:24`
+   - завершение: `22:58:24`
+   - длительность: `120s`
+2. `call_setup_rate.yaml`:
+   - старт: `22:58:24`
+   - завершение: `23:01:25`
+   - длительность: `180s`
+3. `media_stress.yaml`:
+   - старт: `23:01:25`
+   - завершение: `23:04:26`
+   - длительность: `180s`
+
+Сводные метрики из Prometheus после прогонов:
+- `voip_worker_asr_ratio = 0`
+- `voip_worker_ner_ratio = 0`
+- `SRD p95 ~= 0.0095s`
+- `voip_worker_rtp_packet_loss_pct = 0`
+- `voip_worker_rtp_jitter_ms = 0`
+- `voip_worker_rtp_mos_estimated = 0`
+- SIP-коды за окно 30m:
+  - `REGISTER 401 ~= 23862`
+  - `INVITE 401 ~= 11798`
+
+Интерпретация:
+- Сценарии отрабатывают в полном цикле и завершаются автоматически.
+- Наблюдаемость и сбор метрик рабочие.
+- Для получения целевых SLA-значений ASR/NER в сценариях вызовов нужно донастроить сторону Asterisk (в текущем стенде доминируют challenge-ответы `401`).
 
 ## Вывод
 - Фреймворк функционально готов к демонстрации и защите:
