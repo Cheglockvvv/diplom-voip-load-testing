@@ -45,6 +45,9 @@ MVP фреймворк для нагрузочного тестирования 
 - План тестов: `docs/test-plan.md`
 - Шаблон результатов: `docs/results-template.md`
 - Финальный чеклист: `docs/final-runbook.md`
+- Архитектура: `docs/architecture.md`
+- End-to-end процесс: `docs/end-to-end-flow.md`
+- Актуальные результаты тестирования: `docs/testing-results-2026-05-14.md`
 
 ## Примечания
 - Управление `controller -> worker` выполняется через gRPC (`ControlService`) с методами `StartScenario`, `StopScenario`, `GetStatus`, `StreamStatus`.
