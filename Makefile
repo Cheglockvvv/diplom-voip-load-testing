@@ -31,3 +31,6 @@ run-cli-status:
 
 run-cli-watch-status:
 	go run ./cmd/cli watch-status -controller http://localhost:8080
+
+run-onepc-benchmark:
+	powershell -ExecutionPolicy Bypass -File scripts/run_onepc_benchmark.ps1

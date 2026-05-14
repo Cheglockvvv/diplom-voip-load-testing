@@ -46,3 +46,12 @@
 - Скриншоты дашбордов.
 - Заполненный шаблон результатов.
 - Краткое объяснение ограничений Docker-стенда и плана масштабирования на multi-host.
+
+## 6) Усиление стенда на одном ПК
+- Запустить ladder + soak набор:
+  - `powershell -ExecutionPolicy Bypass -File scripts/run_onepc_benchmark.ps1`
+  - или `make run-onepc-benchmark`
+- Результаты будут сохранены в:
+  - `docs/onepc-benchmark-results.json`
+  - `docs/onepc-benchmark-results.md`
+- Использовать эти файлы как дополнительный экспериментальный блок в дипломе.

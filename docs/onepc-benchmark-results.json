@@ -1,0 +1,173 @@
+﻿{
+    "generated_at":  "2026-05-15T00:19:46",
+    "runs":  [
+                 {
+                     "name":  "LADDER_S2_CPS2",
+                     "scenario_file":  "scenarios/onepc/s2_call_setup_cps2.yaml",
+                     "started_at":  "2026-05-15T00:19:46",
+                     "ended_at":  "2026-05-15T00:21:53",
+                     "elapsed_seconds":  127,
+                     "completed":  true,
+                     "run_command_output":  "status: 202 Accepted\nrun_id: run-4\nmessage: scenario started",
+                     "sip_requests_delta":  {
+                                                "REGISTER|401":  0,
+                                                "INVITE|100":  0,
+                                                "INVITE|200":  0,
+                                                "BYE|200":  0,
+                                                "BYE|408":  0,
+                                                "INVITE|408":  177
+                                            },
+                     "sip_retries_delta":  {
+                                               "BYE":  0,
+                                               "INVITE":  177
+                                           },
+                     "registration_delay_avg_seconds":  0,
+                     "session_delay_avg_seconds":  4.801303,
+                     "asr_ratio_after":  0.0056,
+                     "ner_ratio_after":  0.0056,
+                     "rtp_packet_loss_after":  0,
+                     "rtp_jitter_ms_after":  0,
+                     "rtp_mos_after":  0
+                 },
+                 {
+                     "name":  "LADDER_S2_CPS4",
+                     "scenario_file":  "scenarios/onepc/s2_call_setup_cps4.yaml",
+                     "started_at":  "2026-05-15T00:21:53",
+                     "ended_at":  "2026-05-15T00:24:00",
+                     "elapsed_seconds":  127,
+                     "completed":  true,
+                     "run_command_output":  "status: 202 Accepted\nrun_id: run-5\nmessage: scenario started",
+                     "sip_requests_delta":  {
+                                                "REGISTER|401":  0,
+                                                "INVITE|100":  0,
+                                                "INVITE|200":  0,
+                                                "BYE|200":  0,
+                                                "BYE|408":  0,
+                                                "INVITE|408":  352
+                                            },
+                     "sip_retries_delta":  {
+                                               "BYE":  0,
+                                               "INVITE":  352
+                                           },
+                     "registration_delay_avg_seconds":  0,
+                     "session_delay_avg_seconds":  4.801269,
+                     "asr_ratio_after":  0.00544,
+                     "ner_ratio_after":  0.00544,
+                     "rtp_packet_loss_after":  0,
+                     "rtp_jitter_ms_after":  0,
+                     "rtp_mos_after":  0
+                 },
+                 {
+                     "name":  "LADDER_S2_CPS6",
+                     "scenario_file":  "scenarios/onepc/s2_call_setup_cps6.yaml",
+                     "started_at":  "2026-05-15T00:24:00",
+                     "ended_at":  "2026-05-15T00:26:07",
+                     "elapsed_seconds":  127,
+                     "completed":  true,
+                     "run_command_output":  "status: 202 Accepted\nrun_id: run-6\nmessage: scenario started",
+                     "sip_requests_delta":  {
+                                                "REGISTER|401":  0,
+                                                "INVITE|100":  0,
+                                                "INVITE|200":  0,
+                                                "BYE|200":  0,
+                                                "BYE|408":  0,
+                                                "INVITE|408":  544
+                                            },
+                     "sip_retries_delta":  {
+                                               "BYE":  0,
+                                               "INVITE":  544
+                                           },
+                     "registration_delay_avg_seconds":  0,
+                     "session_delay_avg_seconds":  4.801261,
+                     "asr_ratio_after":  0.00521,
+                     "ner_ratio_after":  0.00521,
+                     "rtp_packet_loss_after":  0,
+                     "rtp_jitter_ms_after":  0,
+                     "rtp_mos_after":  0
+                 },
+                 {
+                     "name":  "LADDER_S2_CPS8",
+                     "scenario_file":  "scenarios/onepc/s2_call_setup_cps8.yaml",
+                     "started_at":  "2026-05-15T00:26:07",
+                     "ended_at":  "2026-05-15T00:28:14",
+                     "elapsed_seconds":  127,
+                     "completed":  true,
+                     "run_command_output":  "status: 202 Accepted\nrun_id: run-7\nmessage: scenario started",
+                     "sip_requests_delta":  {
+                                                "REGISTER|401":  0,
+                                                "INVITE|100":  0,
+                                                "INVITE|200":  0,
+                                                "BYE|200":  0,
+                                                "BYE|408":  0,
+                                                "INVITE|408":  739
+                                            },
+                     "sip_retries_delta":  {
+                                               "BYE":  0,
+                                               "INVITE":  739
+                                           },
+                     "registration_delay_avg_seconds":  0,
+                     "session_delay_avg_seconds":  4.801251,
+                     "asr_ratio_after":  0.004927,
+                     "ner_ratio_after":  0.004927,
+                     "rtp_packet_loss_after":  0,
+                     "rtp_jitter_ms_after":  0,
+                     "rtp_mos_after":  0
+                 },
+                 {
+                     "name":  "LADDER_S3_CPS2",
+                     "scenario_file":  "scenarios/onepc/s3_media_cps2.yaml",
+                     "started_at":  "2026-05-15T00:28:14",
+                     "ended_at":  "2026-05-15T00:30:21",
+                     "elapsed_seconds":  127,
+                     "completed":  true,
+                     "run_command_output":  "status: 202 Accepted\nrun_id: run-8\nmessage: scenario started",
+                     "sip_requests_delta":  {
+                                                "REGISTER|401":  0,
+                                                "INVITE|100":  0,
+                                                "INVITE|200":  0,
+                                                "BYE|200":  0,
+                                                "BYE|408":  0,
+                                                "INVITE|408":  180
+                                            },
+                     "sip_retries_delta":  {
+                                               "BYE":  0,
+                                               "INVITE":  180
+                                           },
+                     "registration_delay_avg_seconds":  0,
+                     "session_delay_avg_seconds":  5.000967,
+                     "asr_ratio_after":  0.004862,
+                     "ner_ratio_after":  0.004862,
+                     "rtp_packet_loss_after":  0,
+                     "rtp_jitter_ms_after":  0,
+                     "rtp_mos_after":  0
+                 },
+                 {
+                     "name":  "SOAK_S3_15M",
+                     "scenario_file":  "scenarios/onepc/s3_media_soak_15m.yaml",
+                     "started_at":  "2026-05-15T00:30:21",
+                     "ended_at":  "2026-05-15T00:45:28",
+                     "elapsed_seconds":  906,
+                     "completed":  true,
+                     "run_command_output":  "status: 202 Accepted\nrun_id: run-9\nmessage: scenario started",
+                     "sip_requests_delta":  {
+                                                "REGISTER|401":  0,
+                                                "INVITE|100":  0,
+                                                "INVITE|200":  0,
+                                                "BYE|200":  0,
+                                                "BYE|408":  0,
+                                                "INVITE|408":  1502
+                                            },
+                     "sip_retries_delta":  {
+                                               "BYE":  0,
+                                               "INVITE":  1502
+                                           },
+                     "registration_delay_avg_seconds":  0,
+                     "session_delay_avg_seconds":  5.000993,
+                     "asr_ratio_after":  0.004385,
+                     "ner_ratio_after":  0.004385,
+                     "rtp_packet_loss_after":  0,
+                     "rtp_jitter_ms_after":  0,
+                     "rtp_mos_after":  0
+                 }
+             ]
+}

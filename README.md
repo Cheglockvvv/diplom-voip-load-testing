@@ -40,6 +40,7 @@ MVP фреймворк для нагрузочного тестирования 
 - `scenarios/registration_storm.yaml`
 - `scenarios/call_setup_rate.yaml`
 - `scenarios/media_stress.yaml`
+- `scenarios/onepc/*.yaml` (ladder/soak профили для одного ПК)
 
 ## Документация
 - План тестов: `docs/test-plan.md`
@@ -75,6 +76,14 @@ MVP фреймворк для нагрузочного тестирования 
 - В сценариях можно настраивать SIP транспорт:
   - `sip_timeout_ms` (таймаут SIP транзакции)
   - `sip_retry_attempts` (количество попыток отправки SIP запроса)
+
+## Single-PC benchmark
+- Автопрогон ladder + soak:
+  - `powershell -ExecutionPolicy Bypass -File scripts/run_onepc_benchmark.ps1`
+  - `make run-onepc-benchmark`
+- Артефакты:
+  - `docs/onepc-benchmark-results.json`
+  - `docs/onepc-benchmark-results.md`
 
 ## Commit strategy
 - Коммиты делать по смысловым блокам, 1 блок = 1 commit:

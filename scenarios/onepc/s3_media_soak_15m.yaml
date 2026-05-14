@@ -1,0 +1,22 @@
+name: s3_media_soak_15m
+mode: media_stress
+users: 140
+cps: 2
+duration_seconds: 900
+ramp_up_seconds: 60
+ramp_down_seconds: 60
+call_duration_seconds: 12
+sip_timeout_ms: 2000
+sip_retry_attempts: 2
+target:
+  host: asterisk
+  sip_port: 5060
+  rtp_port: 10000
+  username: "1000"
+  password: "1000"
+  domain: "asterisk"
+rtp:
+  enabled: true
+  packet_ms: 20
+  payload_size: 160
+  codec: "G.711"
