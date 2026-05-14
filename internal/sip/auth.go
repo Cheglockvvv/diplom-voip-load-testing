@@ -2,6 +2,7 @@ package sip
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -54,6 +55,15 @@ func ParseDigestChallenge(resp string) (DigestChallenge, error) {
 func BuildDigestAuthorization(username, password, method, uri string, ch DigestChallenge) string {
 	ha1 := md5Hex(fmt.Sprintf("%s:%s:%s", username, ch.Realm, password))
 	ha2 := md5Hex(fmt.Sprintf("%s:%s", method, uri))
+	if strings.EqualFold(ch.QOP, "auth") {
+		nc := "00000001"
+		cnonce := randomHex(8)
+		response := md5Hex(fmt.Sprintf("%s:%s:%s:%s:%s:%s", ha1, ch.Nonce, nc, cnonce, "auth", ha2))
+		return fmt.Sprintf(
+			"Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\", algorithm=%s, qop=auth, nc=%s, cnonce=\"%s\"",
+			username, ch.Realm, ch.Nonce, uri, response, ch.Algorithm, nc, cnonce,
+		)
+	}
 	response := md5Hex(fmt.Sprintf("%s:%s:%s", ha1, ch.Nonce, ha2))
 	return fmt.Sprintf(
 		"Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\", algorithm=%s",
@@ -78,4 +88,15 @@ func parseDigestParams(raw string) map[string]string {
 func md5Hex(v string) string {
 	sum := md5.Sum([]byte(v))
 	return hex.EncodeToString(sum[:])
+}
+
+func randomHex(n int) string {
+	if n <= 0 {
+		n = 8
+	}
+	buf := make([]byte, n)
+	if _, err := rand.Read(buf); err != nil {
+		return "abcdef1234567890"
+	}
+	return hex.EncodeToString(buf)
 }

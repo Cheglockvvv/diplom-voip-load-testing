@@ -22,9 +22,9 @@ type Registry struct {
 	RTPMOSEstimated  prometheus.Gauge
 	ScenarioRunning  prometheus.Gauge
 
-	callAttempts uint64
-	callAnswered uint64
-	callNetOK    uint64
+	callAttempts atomic.Uint64
+	callAnswered atomic.Uint64
+	callNetOK    atomic.Uint64
 }
 
 func NewRegistry(component string) *Registry {
@@ -102,11 +102,11 @@ func NewRegistry(component string) *Registry {
 			Name:      "asr_ratio",
 			Help:      "Answer Seizure Ratio.",
 		}, func() float64 {
-			attempts := atomic.LoadUint64(&r.callAttempts)
+			attempts := r.callAttempts.Load()
 			if attempts == 0 {
 				return 1
 			}
-			return float64(atomic.LoadUint64(&r.callAnswered)) / float64(attempts)
+			return float64(r.callAnswered.Load()) / float64(attempts)
 		}),
 		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Namespace: "voip",
@@ -114,11 +114,11 @@ func NewRegistry(component string) *Registry {
 			Name:      "ner_ratio",
 			Help:      "Network Effectiveness Ratio.",
 		}, func() float64 {
-			attempts := atomic.LoadUint64(&r.callAttempts)
+			attempts := r.callAttempts.Load()
 			if attempts == 0 {
 				return 1
 			}
-			return float64(atomic.LoadUint64(&r.callNetOK)) / float64(attempts)
+			return float64(r.callNetOK.Load()) / float64(attempts)
 		}),
 	)
 
@@ -144,11 +144,11 @@ func (r *Registry) ObserveSIP(method, status string, duration time.Duration) {
 }
 
 func (r *Registry) RecordCallAttempt(answered, networkOK bool) {
-	atomic.AddUint64(&r.callAttempts, 1)
+	r.callAttempts.Add(1)
 	if answered {
-		atomic.AddUint64(&r.callAnswered, 1)
+		r.callAnswered.Add(1)
 	}
 	if networkOK {
-		atomic.AddUint64(&r.callNetOK, 1)
+		r.callNetOK.Add(1)
 	}
 }

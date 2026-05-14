@@ -31,3 +31,17 @@ func TestBuildDigestAuthorization(t *testing.T) {
 		t.Fatalf("auth header missing response hash: %s", auth)
 	}
 }
+
+func TestBuildDigestAuthorizationWithQOP(t *testing.T) {
+	ch := DigestChallenge{Realm: "asterisk", Nonce: "abc123", Algorithm: "MD5", QOP: "auth"}
+	auth := BuildDigestAuthorization("1000", "1000", "REGISTER", "sip:asterisk", ch)
+	if !strings.Contains(auth, "qop=auth") {
+		t.Fatalf("auth header missing qop: %s", auth)
+	}
+	if !strings.Contains(auth, "cnonce=") {
+		t.Fatalf("auth header missing cnonce: %s", auth)
+	}
+	if !strings.Contains(auth, "nc=00000001") {
+		t.Fatalf("auth header missing nonce count: %s", auth)
+	}
+}

@@ -184,17 +184,12 @@ func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia
 	networkOK := answered || status == "486" || status == "480"
 	if strings.HasPrefix(status, "18") {
 		fsm.OnProvisional()
-		buf := make([]byte, 8192)
-		_ = conn.SetDeadline(time.Now().Add(sipTimeout))
-		n2, err2 := conn.Read(buf)
-		if err2 == nil {
-			resp2 := string(buf[:n2])
-			status2 := sip.ParseStatusCode(resp2)
-			r.metrics.ObserveSIP("INVITE", status2, time.Since(start))
+		resp2, status2 := r.readInviteUntilFinal(ctx, conn, sipTimeout, start)
+		if status2 != "" {
 			status = status2
 			answered = status2 == "200"
 			networkOK = answered || status2 == "486" || status2 == "480"
-			if answered {
+			if resp2 != "" {
 				resp = resp2
 			}
 		}
@@ -226,7 +221,8 @@ func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia
 		}
 
 		bye := sip.BuildBye(callID, fromUser, toUser, safeDomain(sc), toTag, cseq+1)
-		_, _ = conn.Write([]byte(bye))
+		_, byeStatus := r.udpTransaction(ctx, conn, bye, "BYE", sc.SIPRetryAttempts, sipTimeout)
+		r.metrics.ObserveSIP("BYE", byeStatus, time.Since(start))
 		fsm.OnTerminated()
 	}
 
@@ -317,4 +313,29 @@ func minDuration(a, b time.Duration) time.Duration {
 		return a
 	}
 	return b
+}
+
+func (r *Runner) readInviteUntilFinal(ctx context.Context, conn net.Conn, timeout time.Duration, start time.Time) (string, string) {
+	deadline := time.Now().Add(timeout)
+	buf := make([]byte, 8192)
+	for {
+		if err := contextErr(ctx); err != nil {
+			return "", "499"
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return "", "408"
+		}
+		_ = conn.SetDeadline(time.Now().Add(remaining))
+		n, err := conn.Read(buf)
+		if err != nil {
+			return "", "408"
+		}
+		resp := string(buf[:n])
+		status := sip.ParseStatusCode(resp)
+		r.metrics.ObserveSIP("INVITE", status, time.Since(start))
+		if !strings.HasPrefix(status, "1") {
+			return resp, status
+		}
+	}
 }
