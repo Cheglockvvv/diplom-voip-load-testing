@@ -173,7 +173,20 @@ func (r *Runner) runCallSetup(ctx context.Context, sc config.Scenario, withMedia
 	}
 
 	resp, status := r.udpTransaction(ctx, conn, invite, "INVITE", sc.SIPRetryAttempts, sipTimeout)
-	if status == "408" || status == "000" || status == "499" {
+	if status == "401" && sc.Target.Password != "" {
+		challenge, err := sip.ParseDigestChallenge(resp)
+		if err == nil {
+			uri := fmt.Sprintf("sip:%s@%s", toUser, safeDomain(sc))
+			authHeader := sip.BuildDigestAuthorization(fromUser, sc.Target.Password, "INVITE", uri, challenge)
+			authInvite := sip.BuildInviteWithAuthorization(sc.Target.Host, sc.Target.SIPPort, fromUser, toUser, safeDomain(sc), cseq+1, authHeader)
+			authResp, authStatus := r.udpTransaction(ctx, conn, authInvite, "INVITE", sc.SIPRetryAttempts, sipTimeout)
+			r.metrics.ObserveSIP("INVITE", authStatus, time.Since(start))
+			resp = authResp
+			status = authStatus
+		}
+	}
+
+	if status == "408" || status == "000" || status == "499" || status == "401" {
 		r.metrics.RecordCallAttempt(false, false)
 		r.metrics.ObserveSIP("INVITE", status, time.Since(start))
 		return

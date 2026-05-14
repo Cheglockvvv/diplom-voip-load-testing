@@ -39,10 +39,18 @@ func buildRegister(host string, port int, user, domain string, cseq int, authori
 }
 
 func BuildInvite(host string, port int, fromUser, toUser, domain string, cseq int) string {
+	return buildInvite(host, port, fromUser, toUser, domain, cseq, "")
+}
+
+func BuildInviteWithAuthorization(host string, port int, fromUser, toUser, domain string, cseq int, authorization string) string {
+	return buildInvite(host, port, fromUser, toUser, domain, cseq, authorization)
+}
+
+func buildInvite(host string, port int, fromUser, toUser, domain string, cseq int, authorization string) string {
 	branch := randomToken()
 	callID := fmt.Sprintf("%s@%s", randomToken(), host)
 	fromTag := randomToken()
-	return strings.Join([]string{
+	headers := []string{
 		fmt.Sprintf("INVITE sip:%s@%s SIP/2.0", toUser, domain),
 		fmt.Sprintf("Via: SIP/2.0/UDP tester;branch=z9hG4bK-%s", branch),
 		"Max-Forwards: 70",
@@ -52,10 +60,12 @@ func BuildInvite(host string, port int, fromUser, toUser, domain string, cseq in
 		fmt.Sprintf("CSeq: %d INVITE", cseq),
 		fmt.Sprintf("Contact: <sip:%s@tester:%d>", fromUser, port),
 		"Content-Type: application/sdp",
-		"Content-Length: 0",
-		"",
-		"",
-	}, "\r\n")
+	}
+	if authorization != "" {
+		headers = append(headers, fmt.Sprintf("Authorization: %s", authorization))
+	}
+	headers = append(headers, "Content-Length: 0", "", "")
+	return strings.Join(headers, "\r\n")
 }
 
 func BuildAck(callID, fromUser, toUser, domain, toTag string, cseq int) string {
